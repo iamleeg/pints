@@ -244,7 +244,7 @@ class MCMCSampling(object):
         if not isinstance(log_pdf, pints.LogPDF):
             raise ValueError('Given function must extend pints.LogPDF')
         self._log_pdf = log_pdf
-
+    
         # Get dimension
         self._dimension = self._log_pdf.n_parameters()
 
@@ -353,8 +353,17 @@ class MCMCSampling(object):
             n_workers = min(self._n_workers, self._chains)
             evaluator = pints.ParallelEvaluator(
                 self._log_pdf, n_workers=n_workers)
+            if self._samplers[0].name() == 'Population MCMC':
+                evaluator_lik = pints.ParallelEvaluator(self._log_pdf._log_likelihood, n_workers=n_workers)
+                evaluator_prior = pints.ParallelEvaluator(self._log_pdf._log_prior, n_workers=n_workers)
+            else:
+                evaluator = pints.ParallelEvaluator(self._log_pdf, n_workers=n_workers)
         else:
-            evaluator = pints.SequentialEvaluator(self._log_pdf)
+            if self._samplers[0].name() == 'Population MCMC':
+                evaluator_lik = pints.SequentialEvaluator(self._log_pdf._log_likelihood)
+                evaluator_prior = pints.SequentialEvaluator(self._log_pdf._log_prior)
+            else:
+                evaluator = pints.SequentialEvaluator(self._log_pdf)
 
         # Set up progress reporting
         next_message = 0
@@ -404,14 +413,28 @@ class MCMCSampling(object):
                 xs = self._samplers[0].ask()
 
             # Calculate scores
-            fxs = evaluator.evaluate(xs)
+            if self._samplers[0].name() == 'Population MCMC':
+                fxs_lik = evaluator_lik.evaluate(xs)
+                fxs_prior = evaluator_prior.evaluate(xs)
+                fxs = list([fxs_lik,fxs_prior])
+            else:
+                fxs = evaluator.evaluate(xs)
+            
 
             # Perform iteration(s)
-            if self._single_chain:
-                samples = np.array([
-                    s.tell(fxs[i]) for i, s in enumerate(self._samplers)])
+            if self._samplers[0].name() == 'Population MCMC':
+                if self._single_chain:
+                    samples = np.array([s.tell([
+                         fxs[0][i],fxs[1][i]]) for i, s in enumerate(self._samplers)])
+                else:
+                    samples = self._samplers[0].tell([fxs[0],fxs[1]])
             else:
-                samples = self._samplers[0].tell(fxs)
+                if self._single_chain:
+                    samples = np.array([
+                        s.tell(fxs[i]) for i, s in enumerate(self._samplers)])
+                else:
+                    samples = self._samplers[0].tell(fxs)
+                    
             chains.append(samples)
 
             # Update evaluation count
