@@ -61,9 +61,6 @@ class PopulationMCMC(pints.SingleChainMCMC):
 
         # Inner chains
         self._chains = None
-        
-        # Log vs linear schedule
-        self._log_temperature_schedule= True
 
         #
         # Default settings
@@ -74,6 +71,7 @@ class PopulationMCMC(pints.SingleChainMCMC):
 
         # Temperature schedule
         self._schedule = None
+        self._log_temperature_schedule = True
         self.set_temperature_schedule()
 
         #
