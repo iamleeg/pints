@@ -36,6 +36,7 @@ class KnownNoiseLogLikelihood(pints.ProblemLogLikelihood):
 
     *Extends:* :class:`ProblemLogLikelihood`
     """
+
     def __init__(self, problem, sigma):
         super(KnownNoiseLogLikelihood, self).__init__(problem)
 
@@ -72,12 +73,11 @@ class KnownNoiseLogLikelihood(pints.ProblemLogLikelihood):
         # Evaluate, and get residuals
         y, dy = self._problem.evaluateS1(x)
 
+        # Reshape dy, in case we're working with a single-output problem
+        dy = dy.reshape(self._nt, self._no, self._np)
+
         # Note: Must be (data - simulation), sign now matters!
         r = self._values - y
-
-        # Reshape y and r, in case we're working with a single-output problem
-        r = r.reshape(self._nt, self._no)
-        dy = dy.reshape(self._nt, self._no, self._np)
 
         # Calculate log-likelihood
         L = np.sum(self._offset + self._multip * np.sum(r**2, axis=0))
@@ -134,6 +134,7 @@ class UnknownNoiseLogLikelihood(pints.ProblemLogLikelihood):
 
     *Extends:* :class:`ProblemLogLikelihood`
     """
+
     def __init__(self, problem):
         super(UnknownNoiseLogLikelihood, self).__init__(problem)
 
@@ -152,6 +153,35 @@ class UnknownNoiseLogLikelihood(pints.ProblemLogLikelihood):
         error = self._values - self._problem.evaluate(x[:-self._no])
         return np.sum(- self._logn - self._nt * np.log(sigma)
                       - np.sum(error**2, axis=0) / (2 * sigma**2))
+
+    def evaluateS1(self, x):
+        """ See :meth:`LogPDF.evaluateS1()`. """
+        sigma = float(np.asarray(x[-self._no:]))
+
+        # Evaluate, and get residuals
+        y, dy = self._problem.evaluateS1(x[:-self._no])
+
+        # Reshape dy, in case we're working with a single-output problem
+        dy = dy.reshape(self._nt, self._no, self._n_parameters - 1)
+
+        # Note: Must be (data - simulation), sign now matters!
+        r = self._values - y
+
+        # Calculate log-likelihood
+        L = np.sum(-self._logn - self._nt * np.log(sigma)
+                   - (1.0 / (2 * sigma**2)) * np.sum(r**2, axis=0))
+
+        # Calculate derivatives in the model parameters
+        dL = np.sum(
+            (sigma**(-2.0) * np.sum((r.T * dy.T).T, axis=0).T).T, axis=0)
+
+        # Calculate derivative wrt sigma
+        dsigma = np.sum(-self._nt / sigma +
+                        sigma**(-3.0) * np.sum(r**2, axis=0))
+        dL = np.concatenate((dL, np.array([dsigma])))
+
+        # Return
+        return L, dL
 
 
 class StudentTLogLikelihood(pints.ProblemLogLikelihood):
@@ -182,6 +212,7 @@ class StudentTLogLikelihood(pints.ProblemLogLikelihood):
 
     *Extends:* :class:`ProblemLogLikelihood`
     """
+
     def __init__(self, problem):
         super(StudentTLogLikelihood, self).__init__(problem)
 
@@ -237,6 +268,7 @@ class ScaledLogLikelihood(pints.ProblemLogLikelihood):
 
     *Extends:* :class:`ProblemLogLikelihood`
     """
+
     def __init__(self, log_likelihood):
         # Check arguments
         if not isinstance(log_likelihood, pints.ProblemLogLikelihood):
@@ -259,89 +291,11 @@ class ScaledLogLikelihood(pints.ProblemLogLikelihood):
         """
         See :meth:`LogPDF.evaluateS1()`.
 
-        *This method only works if the underlying :class:`LogLikelihood`
-        object implement the optional method :meth:`LogPDF.evaluateS1()`!*
+        *This method only works if the underlying :class:`LogPDF` object
+        implements the optional method :meth:`LogPDF.evaluateS1()`!*
         """
         a, b = self._log_likelihood.evaluateS1(x)
         return self._f * a, self._f * np.asarray(b)
-
-
-class SumOfIndependentLogLikelihoods(pints.LogLikelihood):
-    """
-    Calculates a sum of :class:`LogLikelihood` objects, all defined on the same
-    parameter space.
-
-    This is useful for e.g. Bayesian inference using a single model evaluated
-    on two **independent** data sets ``D`` and ``E``. In this case,
-
-    .. math::
-        f(\\theta|D,E) &= \\frac{f(D, E|\\theta)f(\\theta)}{f(D, E)} \\\\
-                       &= \\frac{f(D|\\theta)f(E|\\theta)f(\\theta)}{f(D, E)}
-
-    Arguments:
-
-    ``log_likelihoods``
-        A sequence of :class:`LogLikelihood` objects.
-
-    Example::
-
-        log_likelihood = pints.SumOfIndependentLogLikelihoods([
-            pints.UnknownNoiseLogLikelihood(problem1),
-            pints.UnknownNoiseLogLikelihood(problem2),
-        ])
-
-    *Extends:* :class:`LogLikelihood`
-    """
-    def __init__(self, log_likelihoods):
-        super(SumOfIndependentLogLikelihoods, self).__init__()
-
-        # Check input arguments
-        if len(log_likelihoods) < 2:
-            raise ValueError(
-                'SumOfIndependentLogLikelihoods requires at least two log'
-                ' likelihoods.')
-        for i, e in enumerate(log_likelihoods):
-            if not isinstance(e, pints.LogLikelihood):
-                raise ValueError(
-                    'All objects passed to SumOfIndependentLogLikelihoods must'
-                    ' be instances of pints.LogLikelihood (failed on argument '
-                    + str(i) + ').')
-        self._log_likelihoods = list(log_likelihoods)
-
-        # Get and check dimension
-        i = iter(self._log_likelihoods)
-        self._n_parameters = next(i).n_parameters()
-        for e in i:
-            if e.n_parameters() != self._n_parameters:
-                raise ValueError(
-                    'All log-likelihoods passed to'
-                    ' SumOfIndependentLogLikelihoods must have same'
-                    ' dimension.')
-
-    def __call__(self, x):
-        total = 0
-        for e in self._log_likelihoods:
-            total += e(x)
-        return total
-
-    def evaluateS1(self, x):
-        """
-        See :meth:`LogPDF.evaluateS1()`.
-
-        *This method only works if all the underlying :class:`LogLikelihood`
-        objects implement the optional method :meth:`LogPDF.evaluateS1()`!*
-        """
-        total = 0
-        dtotal = np.zeros(self._n_parameters)
-        for e in self._log_likelihoods:
-            a, b = e.evaluateS1(x)
-            total += a
-            dtotal += np.asarray(b)
-        return total, dtotal
-
-    def n_parameters(self):
-        """ See :meth:`LogPDF.n_parameters()`. """
-        return self._n_parameters
 
 
 class CauchyLogLikelihood(pints.ProblemLogLikelihood):

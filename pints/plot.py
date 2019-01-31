@@ -38,17 +38,17 @@ def function(f, x, lower=None, upper=None, evaluations=20):
     """
     import matplotlib.pyplot as plt
 
-    # Check function get dimension
+    # Check function and get n_parameters
     if not (isinstance(f, pints.LogPDF) or isinstance(f, pints.ErrorMeasure)):
         raise ValueError(
             'Given function must be pints.LogPDF or pints.ErrorMeasure.')
-    dimension = f.n_parameters()
+    n_param = f.n_parameters()
 
     # Check point
     x = pints.vector(x)
-    if len(x) != dimension:
+    if len(x) != n_param:
         raise ValueError(
-            'Given point `x` must have same dimension as function.')
+            'Given point `x` must have same number of parameters as function.')
 
     # Check boundaries
     if lower is None:
@@ -57,18 +57,18 @@ def function(f, x, lower=None, upper=None, evaluations=20):
         lower[lower == 0] = -1
     else:
         lower = pints.vector(lower)
-        if len(lower) != dimension:
-            raise ValueError(
-                'Lower bounds must have same dimension as function.')
+        if len(lower) != n_param:
+            raise ValueError('Lower bounds must have same number of'
+                             + ' parameters as function.')
     if upper is None:
         # Guess boundaries based on point x
         upper = x * 1.05
         upper[upper == 0] = 1
     else:
         upper = pints.vector(upper)
-        if len(upper) != dimension:
-            raise ValueError(
-                'Upper bounds must have same dimension as function.')
+        if len(upper) != n_param:
+            raise ValueError('Upper bounds must have same number of'
+                             + ' parameters as function.')
 
     # Check number of evaluations
     evaluations = int(evaluations)
@@ -76,8 +76,8 @@ def function(f, x, lower=None, upper=None, evaluations=20):
         raise ValueError('Number of evaluations must be greater than zero.')
 
     # Create points to plot
-    xs = np.tile(x, (dimension * evaluations, 1))
-    for j in range(dimension):
+    xs = np.tile(x, (n_param * evaluations, 1))
+    for j in range(n_param):
         i1 = j * evaluations
         i2 = i1 + evaluations
         xs[i1:i2, j] = np.linspace(lower[j], upper[j], evaluations)
@@ -86,7 +86,9 @@ def function(f, x, lower=None, upper=None, evaluations=20):
     fs = pints.evaluate(f, xs, parallel=False)
 
     # Create figure
-    fig, axes = plt.subplots(dimension, 1, figsize=(6, 2 * dimension))
+    fig, axes = plt.subplots(n_param, 1, figsize=(6, 2 * n_param))
+    if n_param == 1:
+        axes = np.asarray([axes], dtype=object)
     for j, p in enumerate(x):
         i1 = j * evaluations
         i2 = i1 + evaluations
@@ -121,18 +123,18 @@ def function_between_points(f, point_1, point_2, padding=0.25, evaluations=20):
     """
     import matplotlib.pyplot as plt
 
-    # Check function get dimension
+    # Check function and get n_parameters
     if not (isinstance(f, pints.LogPDF) or isinstance(f, pints.ErrorMeasure)):
         raise ValueError(
             'Given function must be pints.LogPDF or pints.ErrorMeasure.')
-    dimension = f.n_parameters()
+    n_param = f.n_parameters()
 
     # Check points
     point_1 = pints.vector(point_1)
     point_2 = pints.vector(point_2)
-    if not (len(point_1) == len(point_2) == dimension):
-        raise ValueError(
-            'Both points must have the same dimension as the given function.')
+    if not (len(point_1) == len(point_2) == n_param):
+        raise ValueError('Both points must have the same number of parameters'
+                         + ' as the given function.')
 
     # Check padding
     padding = float(padding)
@@ -177,9 +179,9 @@ def histogram(samples, ref_parameters=None, n_percentiles=None):
 
     ``samples``
         A list of lists of samples, with shape
-        ``(n_lists, n_samples, dimension)``, where ``n_lists`` is the number of
-        lists of samples, ``n_samples`` is the number of samples in one list \
-        and ``dimension`` is the number of parameters.
+        ``(n_lists, n_samples, n_parameters)``, where ``n_lists`` is the
+        number of lists of samples, ``n_samples`` is the number of samples in
+        one list and ``n_parameters`` is the number of parameters.
     ``ref_parameters``
         (Optional) A set of parameters for reference in the plot. For example,
         if true values of parameters are known, they can be passed in for
@@ -213,13 +215,18 @@ def histogram(samples, ref_parameters=None, n_percentiles=None):
                 'Length of `ref_parameters` must be same as number of'
                 ' parameters.')
 
-    # Set up figure, plot first samples
-    fig, axes = plt.subplots(n_param, 1, figsize=(6, 2 * n_param))
+    # Set up figure
+    fig, axes = plt.subplots(
+        n_param, 1, figsize=(6, 2 * n_param),
+        squeeze=False,    # Tell matlab to always return a 2d axes object
+    )
+
+    # Plot first samples
     for i in range(n_param):
         for j_list, samples_j in enumerate(samples):
             # Add histogram subplot
-            axes[i].set_xlabel('Parameter ' + str(i + 1))
-            axes[i].set_ylabel('Frequency')
+            axes[i, 0].set_xlabel('Parameter ' + str(i + 1))
+            axes[i, 0].set_ylabel('Frequency')
             if n_percentiles is None:
                 xmin = np.min(samples_j[:, i])
                 xmax = np.max(samples_j[:, i])
@@ -229,22 +236,23 @@ def histogram(samples, ref_parameters=None, n_percentiles=None):
                 xmax = np.percentile(samples_j[:, i],
                                      50 + n_percentiles / 2.)
             xbins = np.linspace(xmin, xmax, bins)
-            axes[i].hist(samples_j[:, i], bins=xbins, alpha=alpha,
-                         label='Samples ' + str(1 + j_list))
+            axes[i, 0].hist(
+                samples_j[:, i], bins=xbins, alpha=alpha,
+                label='Samples ' + str(1 + j_list))
 
         # Add reference parameters if given
         if ref_parameters is not None:
             # For histogram subplot
-            ymin_tv, ymax_tv = axes[i].get_ylim()
-            axes[i].plot(
+            ymin_tv, ymax_tv = axes[i, 0].get_ylim()
+            axes[i, 0].plot(
                 [ref_parameters[i], ref_parameters[i]],
                 [0.0, ymax_tv],
                 '--', c='k')
     if n_list > 1:
-        axes[0].legend()
+        axes[0, 0].legend()
 
     plt.tight_layout()
-    return fig, axes
+    return fig, axes[:, 0]
 
 
 def trace(samples, ref_parameters=None, n_percentiles=None):
@@ -257,9 +265,9 @@ def trace(samples, ref_parameters=None, n_percentiles=None):
 
     ``samples``
         A list of lists of samples, with shape
-        ``(n_lists, n_samples, dimension)``, where ``n_lists`` is the number of
-        lists of samples, ``n_samples`` is the number of samples in one list
-        and ``dimension`` is the number of parameters.
+        ``(n_lists, n_samples, n_parameters)``, where ``n_lists`` is the
+        number of lists of samples, ``n_samples`` is the number of samples in
+        one list and ``n_parameters`` is the number of parameters.
     ``ref_parameters``
         (Optional) A set of parameters for reference in the plot. For example,
         if true values of parameters are known, they can be passed in for
@@ -293,8 +301,15 @@ def trace(samples, ref_parameters=None, n_percentiles=None):
                 'Length of `ref_parameters` must be same as number of'
                 ' parameters.')
 
-    # Set up figure, plot first samples
-    fig, axes = plt.subplots(n_param, 2, figsize=(12, 2 * n_param))
+    # Set up figure
+    fig, axes = plt.subplots(
+        n_param, 2, figsize=(12, 2 * n_param),
+
+        # Tell matplotlib to return 2d, even if n_param is 1
+        squeeze=False,
+    )
+
+    # Plot first samples
     for i in range(n_param):
         ymin_all, ymax_all = np.inf, -np.inf
         for j_list, samples_j in enumerate(samples):
@@ -353,9 +368,9 @@ def autocorrelation(samples, max_lags=100):
     Arguments:
 
     ``samples``
-        A list of samples, with shape ``(n_samples, dimension)``, where
-        ``n_samples`` is the number of samples in the list and ``dimension`` is
-        the number of parameters.
+        A list of samples, with shape ``(n_samples, n_parameters)``, where
+        ``n_samples`` is the number of samples in the list and ``n_parameters``
+        is the number of parameters.
     ``max_lags``
         (Optional) The maximum autocorrelation lag to plot.
 
@@ -367,9 +382,12 @@ def autocorrelation(samples, max_lags=100):
     try:
         n_sample, n_param = samples.shape
     except ValueError:
-        raise ValueError('`samples` must be of shape (n_sample, n_param).')
+        raise ValueError('`samples` must be of shape (n_sample,'
+                         + ' n_parameters).')
 
     fig, axes = plt.subplots(n_param, 1, sharex=True, figsize=(6, 2 * n_param))
+    if n_param == 1:
+        axes = np.asarray([axes], dtype=object)
     for i in range(n_param):
         axes[i].acorr(samples[:, i] - np.mean(samples[:, i]), maxlags=max_lags)
         axes[i].set_xlim(-0.5, max_lags + 0.5)
@@ -397,16 +415,16 @@ def series(samples, problem, ref_parameters=None, thinning=None):
     Arguments:
 
     ``samples``
-        A list of samples, with shape `(n_samples, dimension)`, where
-        `n_samples` is the number of samples in the list and `dimension` is
-        the number of parameters.
+        A list of samples, with shape ``(n_samples, n_parameters)``, where
+        `n_samples` is the number of samples in the list and ``n_parameters``
+        is the number of parameters.
     ``problem``
-        A :class:`pints.SingleOutputProblem` or
-        :class:`pints.MultiOutputProblem` of a dimension equal to or greater
-        than the ``dimension`` of the `samples`. Any extra parameters present
-        in the chain but not accepted by the ``SingleOutputProblem`` or
-        ``MultiOutputProblem`` (for example parameters added by a noise model)
-        will be ignored.
+        A :class:``pints.SingleOutputProblem`` or
+        :class:``pints.MultiOutputProblem`` of a n_parameters equal to or
+        greater than the ``n_parameters`` of the `samples`. Any extra
+        parameters present in the chain but not accepted by the
+        ``SingleOutputProblem`` or ``MultiOutputProblem`` (for example
+        parameters added by a noise model) will be ignored.
     ``ref_parameters``
         (Optional) A set of parameters for reference in the plot. For example,
         if true values of parameters are known, they can be passed in for
@@ -425,18 +443,20 @@ def series(samples, problem, ref_parameters=None, thinning=None):
     try:
         n_sample, n_param = samples.shape
     except ValueError:
-        raise ValueError('`samples` must be of shape (n_sample, n_param).')
+        raise ValueError('`samples` must be of shape (n_sample,'
+                         + ' n_parameters).')
 
-    # Get problem dimension
-    dimension = problem.n_parameters()
+    # Get problem n_parameters
+    n_parameters = problem.n_parameters()
 
     # Check reference parameters
     if ref_parameters is not None:
-        if len(ref_parameters) != n_param and len(ref_parameters) != dimension:
+        if len(ref_parameters) != n_param and \
+                len(ref_parameters) != n_parameters:
             raise ValueError(
                 'Length of `ref_parameters` must be same as number of'
                 ' parameters.')
-        ref_series = problem.evaluate(ref_parameters[:dimension])
+        ref_series = problem.evaluate(ref_parameters[:n_parameters])
 
     # Get number of problem output
     n_outputs = problem.n_outputs()
@@ -457,7 +477,7 @@ def series(samples, problem, ref_parameters=None, thinning=None):
     # Evaluate the model for all parameter sets in the samples
     i = 0
     predicted_values = []
-    for params in samples[::thinning, :dimension]:
+    for params in samples[::thinning, :n_parameters]:
         predicted_values.append(problem.evaluate(params))
         i += 1
     predicted_values = np.array(predicted_values)
@@ -540,9 +560,9 @@ def pairwise(samples,
     Arguments:
 
     ``samples``
-        A list of samples, with shape ``(n_samples, dimension)``, where
-        ``n_samples`` is the number of samples in the list and ``dimension`` is
-        the number of parameters.
+        A list of samples, with shape ``(n_samples, n_parameters)``, where
+        ``n_samples`` is the number of samples in the list and ``n_parameters``
+        is the number of parameters.
     ``kde``
         (Optional) Set to ``True`` to use kernel-density estimation for the
         histograms and scatter plots.
@@ -559,13 +579,24 @@ def pairwise(samples,
 
     Returns a ``matplotlib`` figure object and axes handle.
     """
+    import matplotlib
     import matplotlib.pyplot as plt
+    from distutils.version import LooseVersion
+
+    # Check matplotlib version
+    use_old_matplotlib = LooseVersion(matplotlib.__version__) \
+        < LooseVersion("2.2")
 
     # Check samples size
     try:
         n_sample, n_param = samples.shape
     except ValueError:
-        raise ValueError('`samples` must be of shape (n_sample, n_param).')
+        raise ValueError('`samples` must be of shape (n_sample,'
+                         + ' n_parameters).')
+
+    # Check number of parameters
+    if n_param < 2:
+        raise ValueError('Number of parameters must be larger than 2.')
 
     # Check reference parameters
     if ref_parameters is not None:
@@ -593,7 +624,10 @@ def pairwise(samples,
                                          50 + n_percentiles / 2.)
                 xbins = np.linspace(xmin, xmax, bins)
                 axes[i, j].set_xlim(xmin, xmax)
-                axes[i, j].hist(samples[:, i], bins=xbins, normed=True)
+                if use_old_matplotlib:  # pragma: no cover
+                    axes[i, j].hist(samples[:, i], bins=xbins, normed=True)
+                else:
+                    axes[i, j].hist(samples[:, i], bins=xbins, density=True)
 
                 # Add kde plot
                 if kde:
@@ -685,16 +719,12 @@ def pairwise(samples,
                             '--', c='k')
 
                     # Force equal aspect ratio
-                    # See: https://stackoverflow.com/questions/7965743
-                    im = axes[i, j].get_images()
-                    ex = im[0].get_extent()
                     # Matplotlib raises a warning here (on 2.7 at least)
                     # We can't do anything about it, so no other option than
                     # to suppress it at this stage...
                     with warnings.catch_warnings():
                         warnings.simplefilter('ignore', UnicodeWarning)
-                        axes[i, j].set_aspect(
-                            abs((ex[1] - ex[0]) / (ex[3] - ex[2])))
+                        axes[i, j].set_aspect((xmax - xmin) / (ymax - ymin))
 
             # Set tick labels
             if i < n_param - 1:

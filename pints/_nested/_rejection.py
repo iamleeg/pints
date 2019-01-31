@@ -34,7 +34,7 @@ class NestedRejectionSampler(pints.NestedSampler):
     """
     def __init__(self, log_prior):
         super(NestedRejectionSampler, self).__init__(log_prior)
-
+        
         self._needs_sensitivities = False
 
     def ask(self):

@@ -7,6 +7,15 @@
 #  For licensing information, see the LICENSE file distributed with the PINTS
 #  software package.
 #
+"""
+Pints: Probabilistic Inference on Noisy Time Series.
+
+This module provides several optimisation and sampling methods that can be
+applied to find the parameters of a model (typically a time series model) that
+are most likely, given an experimental data set.
+"""
+
+
 from __future__ import absolute_import, division
 from __future__ import print_function, unicode_literals
 import sys
@@ -14,7 +23,7 @@ import sys
 #
 # Version info: Remember to keep this in sync with setup.py!
 #
-VERSION_INT = 0, 0, 1
+VERSION_INT = 0, 1, 1
 VERSION = '.'.join([str(x) for x in VERSION_INT])
 if sys.version_info[0] < 3:
     del(x)  # Before Python3, list comprehension iterators leaked
@@ -23,6 +32,11 @@ if sys.version_info[0] < 3:
 # Expose pints version
 #
 def version(formatted=False):
+    """
+    Returns the version number, as a 3-part integer (major, minor, revision).
+    If ``formatted=True``, it returns a string formatted version (for example
+    "Pints 1.0.0").
+    """
     if formatted:
         return 'Pints ' + VERSION
     else:
@@ -57,9 +71,9 @@ from ._logger import Logger, Loggable
 from ._log_pdfs import (
     LogPDF,
     LogPrior,
-    LogLikelihood,
     LogPosterior,
     ProblemLogLikelihood,
+    SumOfIndependentLogPDFs,
 )
 
 #
@@ -84,7 +98,6 @@ from ._log_likelihoods import (
     ScaledLogLikelihood,
     StudentTLogLikelihood,
     CauchyLogLikelihood,
-    SumOfIndependentLogLikelihoods,
 )
 
 #
@@ -159,10 +172,12 @@ from ._mcmc import (
     mcmc_sample,
 )
 from ._mcmc._adaptive_covariance import AdaptiveCovarianceMCMC
-from ._mcmc._metropolis import MetropolisRandomWalkMCMC
 from ._mcmc._differential_evolution import DifferentialEvolutionMCMC
-from ._mcmc._population import PopulationMCMC
 from ._mcmc._dream import DreamMCMC
+from ._mcmc._emcee_hammer import EmceeHammerMCMC
+from ._mcmc._hamiltonian import HamiltonianMCMC
+from ._mcmc._population import PopulationMCMC
+from ._mcmc._metropolis import MetropolisRandomWalkMCMC
 
 
 #

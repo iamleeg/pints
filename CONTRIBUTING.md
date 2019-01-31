@@ -201,9 +201,9 @@ Next, open a browser, and navigate to your local pints directory (by typing the 
 
 Major Pints features are showcased in [Jupyter notebooks](https://jupyter.org/) stored in the [examples directory](examples). Which features are "major" is of course wholy subjective, so please discuss on GitHub first!
 
-All example notebooks should be listed in [examples/README.md]. Please follow the (naming and writing) style of existing notebooks where possible.
+All example notebooks should be listed in [examples/README.md](https://github.com/pints-team/pints/examples/README.md). Please follow the (naming and writing) style of existing notebooks where possible.
 
-
+Where possible, notebooks are tested daily. A list of slow notebooks (which time-out and fail tests) is maintained in `.slow-books`, these notebooks will be excluded from daily testing.
 
 
 ## Infrastructure
@@ -241,6 +241,12 @@ Note that these files must be kept in sync with
 
 The requirements files link to each other, so that calling `$ pip install -r requirements-dev.txt` will install everything listed in `requirements.txt` and `requirements-docs.txt` as well.
 
+It's always worth using an up-to-date version of pip. On older systems especially, having an up-to-date pip will prevent all kinds of version incompatibility issues:
+
+```
+$ pip install --upgrade pip
+```
+
 ### Travis CI
 
 All committed code is tested using [Travis CI](https://travis-ci.org/), tests are published on https://travis-ci.org/pints-team/pints.
@@ -251,11 +257,24 @@ Configuration files:
 .travis.yaml
 ```
 
-Unit tests and flake8 testing is done for every commit. A nightly cronjob also tests the notebooks.
+Unit tests and flake8 testing is done for every commit. A nightly cronjob also tests the notebooks. Notebooks listed in `.slow-books` are excluded from these tests.
+
+### Appveyor
+
+Windows testing is done using [appveyor](http://appveyor.com/), tests are published on https://ci.appveyor.com/project/MichaelClerx/pints.
+
+Configuration files:
+
+```
+.appveyor.yml
+```
+
+See ([here](https://www.appveyor.com/docs/appveyor-yml/)) for the syntax.
+
 
 ### Codecov
 
-Code coverage (how much of our code is actually seen by the unit tests) is tested using [Codecov](https://docs.codecov.io/), a report is visible on https://codecov.io/gh/pints-team/pints.
+Code coverage (how much of our code is actually seen by the (linux) unit tests) is tested using [Codecov](https://docs.codecov.io/), a report is visible on https://codecov.io/gh/pints-team/pints.
 
 Configuration files:
 

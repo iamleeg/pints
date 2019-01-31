@@ -13,7 +13,7 @@ import numpy as np
 from scipy.misc import logsumexp
 
 
-class NestedSampler(object):
+class NestedSampler(pints.TunableMethod):
     """
     Abstract base class for nested samplers.
     """
@@ -130,7 +130,7 @@ class NestedSampling(object):
     def __init__(self, log_likelihood, log_prior, method=None):
 
         # Store log_likelihood and log_prior
-        #if not isinstance(log_likelihood, pints.LogLikelihood):
+        # if not isinstance(log_likelihood, pints.LogLikelihood):
         if not isinstance(log_likelihood, pints.LogPDF):
             raise ValueError(
                 'Given log_likelihood must extend pints.LogLikelihood')

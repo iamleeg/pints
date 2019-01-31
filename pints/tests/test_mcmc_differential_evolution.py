@@ -21,8 +21,6 @@ try:
 except AttributeError:
     unittest.TestCase.assertRaisesRegex = unittest.TestCase.assertRaisesRegexp
 
-debug = False
-
 
 class TestDifferentialEvolutionMCMC(unittest.TestCase):
     """
@@ -127,25 +125,68 @@ class TestDifferentialEvolutionMCMC(unittest.TestCase):
         mcmc.ask()
         self.assertRaises(ValueError, mcmc.tell, float('-inf'))
 
+        # Use uniform error
+        mcmc = pints.DifferentialEvolutionMCMC(n, x0)
+        mcmc.set_normal_error(False)
+        for i in range(10):
+            mcmc.tell([self.log_posterior(x) for x in mcmc.ask()])
+
+        # Use absolute scaling
+        mcmc = pints.DifferentialEvolutionMCMC(n, x0)
+        mcmc.set_relative_scaling(False)
+        for i in range(10):
+            mcmc.tell([self.log_posterior(x) for x in mcmc.ask()])
+
     def test_set_hyper_parameters(self):
         """
-        Tests the hyper-parameter interface for this optimiser.
+        Tests the hyper-parameter interface for this sampler.
         """
         n = 3
         x0 = [self.real_parameters] * n
         mcmc = pints.DifferentialEvolutionMCMC(n, x0)
 
-        self.assertEqual(mcmc.n_hyper_parameters(), 2)
+        self.assertEqual(mcmc.n_hyper_parameters(), 5)
 
-        mcmc.set_hyper_parameters([0.5, 0.6])
+        mcmc.set_hyper_parameters([0.5, 0.6, 20, 0, 0])
         self.assertEqual(mcmc._gamma, 0.5)
         self.assertEqual(mcmc._b, 0.6)
+        self.assertEqual(mcmc._gamma_switch_rate, 20)
+        self.assertTrue(not mcmc._normal_error)
+        self.assertTrue(not mcmc._relative_scaling)
 
-        self.assertRaisesRegex(
-            ValueError, 'non-negative', mcmc.set_hyper_parameters, [-1, 0.5])
+        mcmc.set_gamma(0.5)
+        self.assertEqual(mcmc._gamma, 0.5)
+        self.assertRaisesRegex(ValueError,
+                               'non-negative', mcmc.set_gamma, -1)
 
+        mcmc.set_scale_coefficient(1)
+        self.assertTrue(not mcmc._relative_scaling)
+        self.assertRaisesRegex(ValueError,
+                               'non-negative', mcmc.set_scale_coefficient, -1)
+
+        mcmc.set_gamma_switch_rate(11)
+        self.assertEqual(mcmc._gamma_switch_rate, 11)
         self.assertRaisesRegex(
-            ValueError, 'non-negative', mcmc.set_hyper_parameters, [1, -0.5])
+            ValueError, 'integer', mcmc.set_gamma_switch_rate, 11.5)
+        self.assertRaisesRegex(
+            ValueError, 'exceed 1', mcmc.set_gamma_switch_rate, 0)
+
+        mcmc.set_normal_error(False)
+        self.assertTrue(not mcmc._normal_error)
+
+        mcmc.set_relative_scaling(0)
+        self.assertTrue(np.array_equal(mcmc._b_star,
+                                       np.repeat(mcmc._b, mcmc._dimension)))
+        mcmc.set_relative_scaling(1)
+        self.assertTrue(np.array_equal(mcmc._b_star,
+                                       mcmc._mu * mcmc._b))
+
+        # test implicit conversion to int
+        mcmc.set_hyper_parameters([0.5, 0.6, 20.2, 0, 0])
+        self.assertEqual(mcmc._gamma_switch_rate, 20)
+        self.assertRaisesRegex(
+            ValueError, 'convertable to an integer',
+            mcmc.set_hyper_parameters, (0.5, 0.6, 'sdf', 0, 0))
 
     def test_logging(self):
         """
@@ -162,8 +203,4 @@ class TestDifferentialEvolutionMCMC(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    print('Add -v for more debug output')
-    import sys
-    if '-v' in sys.argv:
-        debug = True
     unittest.main()

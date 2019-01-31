@@ -1,7 +1,7 @@
 [![travis](https://travis-ci.org/pints-team/pints.svg?branch=master)](https://travis-ci.org/pints-team/pints)
-[![appveyor](https://ci.appveyor.com/api/projects/status/k8xvn7md0pte2gsi?svg=true)](https://ci.appveyor.com/project/MichaelClerx/pints)
-[![functional](https://github.com/pints-team/functional-testing-results/blob/master/badge.svg)](https://github.com/pints-team/functional-testing-results)
+[![appveyor](https://ci.appveyor.com/api/projects/status/k8xvn7md0pte2gsi/branch/master?svg=true)](https://ci.appveyor.com/project/MichaelClerx/pints/branch/master)
 [![codecov](https://codecov.io/gh/pints-team/pints/branch/master/graph/badge.svg)](https://codecov.io/gh/pints-team/pints)
+[![functional](https://github.com/pints-team/functional-testing-results/blob/master/badge.svg)](https://github.com/pints-team/functional-testing-results)
 [![binder](https://mybinder.org/badge.svg)](https://mybinder.org/v2/gh/pints-team/pints/master?filepath=examples)
 [![readthedocs](https://readthedocs.org/projects/pints/badge/?version=latest)](http://pints.readthedocs.io/en/latest/?badge=latest)
 
@@ -16,7 +16,7 @@ To use a model with Pints, you need to make sure it extends the [ForwardModel](h
 
 ```
 n_parameters() --> Returns the dimension of the parameter space.
-        
+
 simulate(parameters, times) --> Returns a vector of model evaluations at
                                 the given times, using the given parameters
 ```
@@ -34,7 +34,13 @@ You'll need the following requirements:
 - Python 2.7 or Python 3.4+
 - Python libraries: `cma` `numpy` `matplotlib` `scipy`
 
-These will be installed automatically if you go to the directory you downloaded pints to, and run
+These can easily be installed using `pip`. To do this, first make sure you have the latest version of pip installed:
+
+```
+$ pip install --upgrade pip
+```
+
+Then navigate to the path where you downloaded Pints to, and install both Pints and its dependencies by typing:
 
 ```
 $ pip install .
@@ -56,7 +62,9 @@ $ pip uninstall pints
 
 If you'd like to help us develop Pints by adding new methods, writing documentation, or fixing embarassing bugs, please have a look at these [guidelines](CONTRIBUTING.md) first.
 
-## Licensing
+## Licensing and citation
 
 Pints is fully open source. For more information about its license, see [LICENSE](./LICENSE).
+
+If you use PINTS in any scientific work, please [credit our work with a citation](./CITATION).
 

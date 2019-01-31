@@ -163,6 +163,16 @@ class TestNestedRejectionSampler(unittest.TestCase):
         sampler.set_n_posterior_samples(10)
         self.assertRaisesRegex(ValueError, 'exceed 0.25', sampler.run)
 
+    def test_hyper_params(self):
+        """
+        Tests the hyper parameter interface is working.
+        """
+        sampler = pints.NestedRejectionSampler(
+            self.log_likelihood, self.log_prior)
+        self.assertEqual(sampler.n_hyper_parameters(), 1)
+        sampler.set_hyper_parameters([6])
+        self.assertEqual(sampler.active_points_rate(), 6)
+
     def test_getters_and_setters(self):
         """
         Tests various get() and set() methods.
@@ -280,6 +290,18 @@ class TestNestedEllipsoidSampler(unittest.TestCase):
         self.assertRaisesRegex(ValueError, 'exceed 0.25', sampler.run)
         sampler.set_n_posterior_samples(2)
         sampler.set_iterations(4)
+
+    def test_hyper_params(self):
+        """
+        Tests the hyper parameter interface is working.
+        """
+        sampler = pints.NestedEllipsoidSampler(
+            self.log_likelihood, self.log_prior)
+        self.assertEqual(sampler.n_hyper_parameters(), 3)
+        sampler.set_hyper_parameters([6, 2, 3])
+        self.assertEqual(sampler.active_points_rate(), 6)
+        self.assertEqual(sampler.ellipsoid_update_gap(), 2)
+        self.assertEqual(sampler.enlargement_factor(), 3)
 
     def test_logging(self):
         """ Tests logging to screen and file. """

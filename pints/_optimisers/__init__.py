@@ -31,14 +31,53 @@ class Optimiser(pints.Loggable, pints.TunableMethod):
     ``boundaries=None``
         An optional set of boundaries on the parameter space.
 
+    Optimisation using "ask-and-tell" proceed by the user repeatedly "asking"
+    the optimiser for points, and then "telling" it the function evaluations at
+    those points. This allows a user to have fine-grained control over an
+    optimisation, and implement custom parallelisation, logging, stopping
+    criteria etc. Users who don't need this functionality can use optimisers
+    via the :class:`Optimisation` class instead.
+
+    An optimisation with ask-and-tell, proceeds roughly as follows::
+
+        optimiser = MyOptimiser()
+        running = True
+        while running:
+            # Ask for points to evaluate
+            xs = optimiser.ask()
+
+            # Evaluate the score function or pdf at these points
+            # At this point, code to parallelise evaluation can be added in
+            fs = [f(x) for x in xs]
+
+            # Tell the optimiser the evaluations; allowing it to update its
+            # internal state.
+            optimiser.tell(fs)
+
+            # Check stopping criteria
+            # At this point, custom stopping criteria can be added in
+            if optimiser.fbest() < threshold:
+                running = False
+
+            # Check for optimiser issues
+            if optimiser.stop():
+                running = False
+
+            # At this point, code to visualise or benchmark optimiser behaviour
+            # could be added in, for example by plotting `xs` in the parameter
+            # space.
+
     All optimisers implement the :class:`pints.Loggable` and
     :class:`pints.TunableMethod` interfaces.
     """
 
     def __init__(self, x0, sigma0=None, boundaries=None):
 
+        # Convert and store initial position
+        self._x0 = pints.vector(x0)
+
         # Get dimension
-        self._dimension = len(x0)
+        self._dimension = len(self._x0)
         if self._dimension < 1:
             raise ValueError('Problem dimension must be greater than zero.')
 
@@ -49,8 +88,7 @@ class Optimiser(pints.Loggable, pints.TunableMethod):
                 raise ValueError(
                     'Boundaries must have same dimension as starting point.')
 
-        # Store initial position
-        self._x0 = pints.vector(x0)
+        # Check initial position is within boundaries
         if self._boundaries:
             if not self._boundaries.check(self._x0):
                 raise ValueError(
@@ -251,6 +289,12 @@ class Optimisation(object):
     def __init__(
             self, function, x0, sigma0=None, boundaries=None, method=None):
 
+        # Convert x0 to vector
+        # This converts e.g. (1, 7) shapes to (7, ), giving users a bit more
+        # freedom with the exact shape passed in. For example, to allow the
+        # output of LogPrior.sample(1) to be passed in.
+        x0 = pints.vector(x0)
+
         # Check dimension of x0 against function
         if function.n_parameters() != len(x0):
             raise ValueError(
@@ -278,6 +322,7 @@ class Optimisation(object):
         self._log_to_screen = True
         self._log_filename = None
         self._log_csv = False
+        self.set_log_interval()
 
         # Parallelisation
         self._parallel = False
@@ -373,8 +418,6 @@ class Optimisation(object):
 
         # Set up progress reporting
         next_message = 0
-        message_warm_up = 3
-        message_interval = 20
 
         # Start logging
         logging = self._log_to_screen or self._log_filename
@@ -461,11 +504,11 @@ class Optimisation(object):
                     logger.log(timer.time())
 
                     # Choose next logging point
-                    if iteration < message_warm_up:
+                    if iteration < self._message_warm_up:
                         next_message = iteration + 1
                     else:
-                        next_message = message_interval * (
-                            1 + iteration // message_interval)
+                        next_message = self._message_interval * (
+                            1 + iteration // self._message_interval)
 
                 # Update iteration count
                 iteration += 1
@@ -501,6 +544,7 @@ class Optimisation(object):
                 if error:
                     running = False
                     halt_message = ('Halting: ' + str(error))
+
         except (Exception, SystemExit, KeyboardInterrupt):  # pragma: no cover
             # Unexpected end!
             # Show last result and exit
@@ -523,6 +567,27 @@ class Optimisation(object):
 
         # Return best position and score
         return self._optimiser.xbest(), fbest_user
+
+    def set_log_interval(self, iters=20, warm_up=3):
+        """
+        Changes the frequency with which messages are logged.
+
+        Arguments:
+
+        ``interval``
+            A log message will be shown every ``iters`` iterations.
+        ``warm_up``
+            A log message will be shown every iteration, for the first
+            ``warm_up`` iterations.
+
+        """
+        iters = int(iters)
+        if iters < 1:
+            raise ValueError('Interval must be greater than zero.')
+        warm_up = max(0, int(warm_up))
+
+        self._message_interval = iters
+        self._message_warm_up = warm_up
 
     def set_log_to_file(self, filename=None, csv=False):
         """
@@ -549,10 +614,10 @@ class Optimisation(object):
     def set_max_iterations(self, iterations=10000):
         """
         Adds a stopping criterion, allowing the routine to halt after the
-        given number of `iterations`.
+        given number of ``iterations``.
 
         This criterion is enabled by default. To disable it, use
-        `set_max_iterations(None)`.
+        ``set_max_iterations(None)``.
         """
         if iterations is not None:
             iterations = int(iterations)
@@ -564,11 +629,11 @@ class Optimisation(object):
     def set_max_unchanged_iterations(self, iterations=200, threshold=1e-11):
         """
         Adds a stopping criterion, allowing the routine to halt if the
-        objective function doesn't change by more than `threshold` for the
-        given number of `iterations`.
+        objective function doesn't change by more than ``threshold`` for the
+        given number of ``iterations``.
 
         This criterion is enabled by default. To disable it, use
-        `set_max_unchanged_iterations(None)`.
+        ``set_max_unchanged_iterations(None)``.
         """
         if iterations is not None:
             iterations = int(iterations)
@@ -607,11 +672,11 @@ class Optimisation(object):
     def set_threshold(self, threshold):
         """
         Adds a stopping criterion, allowing the routine to halt once the
-        objective function goes below a set `threshold`.
+        objective function goes below a set ``threshold``.
 
         This criterion is disabled by default, but can be enabled by calling
-        this method with a valid `threshold`. To disable it, use
-        `set_treshold(None)`.
+        this method with a valid ``threshold``. To disable it, use
+        ``set_treshold(None)``.
         """
         if threshold is None:
             self._threshold = None
@@ -795,6 +860,7 @@ def curve_fit(f, x, y, p0, boundaries=None, threshold=None, max_iter=None,
 
 class _CurveFitError(pints.ErrorMeasure):
     """ Error measure for :meth:`curve_fit()`. """
+
     def __init__(self, function, dimension, x, y):
         self.f = function
         self.d = dimension
@@ -899,6 +965,7 @@ def fmin(f, x0, args=None, boundaries=None, threshold=None, max_iter=None,
 
 class _FminError(pints.ErrorMeasure):
     """ Error measure for :meth:`fmin()`. """
+
     def __init__(self, f, d):
         self.f = f
         self.d = d
@@ -912,6 +979,7 @@ class _FminError(pints.ErrorMeasure):
 
 class _FminErrorWithArgs(pints.ErrorMeasure):
     """ Error measure for :meth:`fmin()` for functions with args. """
+
     def __init__(self, f, d, args):
         self.f = f
         self.d = d
@@ -922,4 +990,3 @@ class _FminErrorWithArgs(pints.ErrorMeasure):
 
     def __call__(self, x):
         return self.f(x, *self.args)
-

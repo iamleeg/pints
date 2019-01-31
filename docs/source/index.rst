@@ -61,14 +61,14 @@ Sampling
    - Differential evolution methods
 
      - :class:`DifferentialEvolutionMCMC`, works on any :class:`LogPDF`.
-     - DREAM
-     - emcee (MCMC Hammer)
+     - :class:`DreamMCMC`, works on any :class:`LogPDF`.
+     - :class:`EmceeHameerMCMC`, works on any :class:`LogPDF`.
 
 #. :class:`Nested sampling<NestedSampler>`
 
-   - :class:`NestedEllipsoidSampler`, requires a :class:`LogLikelihood` and a
+   - :class:`NestedEllipsoidSampler`, requires a :class:`LogPDF` and a
      :class:`LogPrior` that can be sampled from.
-   - :class:`NestedRejectionSampler`, requires a :class:`LogLikelihood` and a
+   - :class:`NestedRejectionSampler`, requires a :class:`LogPDF` and a
      :class:`LogPrior` that can be sampled from.
 
 #. Particle based samplers
@@ -83,7 +83,7 @@ Sampling
 #. 1st order sensitivity MCMC samplers (Need derivatives of :class:`LogPosterior`)
 
    - MALA
-   - HMC
+   - :class:`HamiltonianMCMC`
    - NUTS
 
 #. Differential geometric methods (Need Hessian of :class:`LogPosterior`)
@@ -126,7 +126,7 @@ To find the appropriate type of Problem to use, see the overview below:
    - Multiple, independent data sets: Define multiple
      :class:`SingleOutputProblems<SingleOutputProblem>` and an error measure
      / log-likelihood on each, and then combine using e.g.
-     :class:`SumOfErrors` or :class:`SumOfIndependentLogLikelihoods`.
+     :class:`SumOfErrors` or :class:`SumOfIndependentLogPDFs`.
 
 #. Systems with multiple observable outputs
 
