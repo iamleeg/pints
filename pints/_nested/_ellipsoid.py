@@ -215,7 +215,24 @@ class NestedEllipsoidSampler(pints.NestedSampler):
 
         return pnts
 
-      
+    def n_hyper_parameters(self):
+        """ See :meth:`TunableMethod.n_hyper_parameters()`. """
+        return 4
+
+    def set_hyper_parameters(self, x):
+        """
+        The hyper-parameter vector is ``[# active points,
+                                         # rejection samples,
+                                         enlargement_factor,
+                                         ellipsoid update gap]``.
+
+        See :meth:`TunableMethod.set_hyper_parameters()`.
+        """
+        self.set_n_active_points(x[0])
+        self.set_rejection_samples(x[1])
+        self.set_enlargement_factor(x[2])
+        self.set_ellipsoid_update_gap(x[3])
+
     def name(self):
         """ See :meth:`pints.NestedSampler.name()`. """
         return 'Nested Ellipsoidal Rejection sampler'
