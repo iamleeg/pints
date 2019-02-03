@@ -223,8 +223,8 @@ class NestedEllipsoidSampler(pints.NestedSampler):
         """
         The hyper-parameter vector is ``[# active points,
                                          # rejection samples,
-                                         enlargement_factor,
-                                         ellipsoid update gap]``.
+                                         enlargement factor,
+                                         ellipsoid update gap]``
 
         See :meth:`TunableMethod.set_hyper_parameters()`.
         """
