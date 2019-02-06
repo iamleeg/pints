@@ -779,7 +779,7 @@ class TestMCMCSampling(unittest.TestCase):
             self.assertIn('Writing evaluations to', text)
             self.assertIn('evals_0.csv', text)
 
-    def test_log_likelihood(self):
+    def test_log_likelihood_storage(self):
         # 2 chains
         x0 = np.array(self.real_parameters) * 1.1
         x1 = np.array(self.real_parameters) * 1.15
@@ -825,6 +825,61 @@ class TestMCMCSampling(unittest.TestCase):
         mcmc = pints.MCMCSampling(log_pdf, 4, x0,
                                   method=pints.AdaptiveCovarianceMCMC)
         self.assertRaises(ValueError, mcmc.set_log_likelihood_storage, True)
+
+    def test_log_density_storage(self):
+        # 2 chains
+        x0 = np.array(self.real_parameters) * 1.1
+        x1 = np.array(self.real_parameters) * 1.15
+        xs = [x0, x1]
+        nchains = len(xs)
+
+        # single chain
+        mcmc = pints.MCMCSampling(self.log_posterior, nchains, xs)
+        self.assertTrue(not mcmc.log_density_storage())
+        self.assertEqual(mcmc.stored_log_density(), None)
+        mcmc.set_log_density_storage(True)
+        self.assertTrue(mcmc.log_density_storage())
+        self.assertTrue(np.array_equal(mcmc.stored_log_density(), []))
+        mcmc.set_initial_phase_iterations(10)
+        for sampler in mcmc._samplers:
+            self.assertTrue(sampler.in_initial_phase())
+        mcmc.set_max_iterations(11)
+        mcmc.set_log_to_screen(False)
+        mcmc.run()
+        self.assertTrue(not np.array_equal(mcmc.stored_log_density(), []))
+
+        # multiple chain
+        # 2 chains
+        x0 = np.array(self.real_parameters) * 1.1
+        x1 = np.array(self.real_parameters) * 1.15
+        xs = [x0, x1, x1]
+        nchains = len(xs)
+        mcmc = pints.MCMCSampling(self.log_posterior, nchains, xs,
+                                  method=pints.DifferentialEvolutionMCMC)
+        self.assertTrue(not mcmc.log_density_storage())
+        self.assertEqual(mcmc.stored_log_density(), None)
+        mcmc.set_log_density_storage(True)
+        self.assertTrue(mcmc.log_density_storage())
+        self.assertTrue(np.array_equal(mcmc.stored_log_density(), []))
+        mcmc.set_max_iterations(11)
+        mcmc.set_log_to_screen(False)
+        mcmc.run()
+        self.assertTrue(not np.array_equal(mcmc.stored_log_density(), []))
+
+        # log_pdf should allow log-likelihood logging
+        log_pdf = pints.toy.RosenbrockLogPDF()
+        x0 = np.random.uniform([-2, -0.5], [3, 3], size=(4, 2))
+        mcmc = pints.MCMCSampling(log_pdf, 4, x0,
+                                  method=pints.AdaptiveCovarianceMCMC)
+        self.assertTrue(not mcmc.log_density_storage())
+        self.assertEqual(mcmc.stored_log_density(), None)
+        mcmc.set_log_density_storage(True)
+        self.assertTrue(mcmc.log_density_storage())
+        self.assertTrue(np.array_equal(mcmc.stored_log_density(), []))
+        mcmc.set_max_iterations(11)
+        mcmc.set_log_to_screen(False)
+        mcmc.run()
+        self.assertTrue(not np.array_equal(mcmc.stored_log_density(), []))
 
 
 if __name__ == '__main__':
