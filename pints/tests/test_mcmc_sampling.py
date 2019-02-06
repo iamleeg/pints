@@ -779,6 +779,27 @@ class TestMCMCSampling(unittest.TestCase):
             self.assertIn('Writing evaluations to', text)
             self.assertIn('evals_0.csv', text)
 
+    def test_log_likelihood(self):
+        # 2 chains
+        x0 = np.array(self.real_parameters) * 1.1
+        x1 = np.array(self.real_parameters) * 1.15
+        xs = [x0, x1]
+        nchains = len(xs)
+
+        mcmc = pints.MCMCSampling(self.log_posterior, nchains, xs)
+        self.assertTrue(not mcmc.log_likelihood_storage())
+        self.assertEqual(mcmc.stored_log_likelihood(), None)
+        mcmc.set_log_likelihood_storage(True)
+        self.assertTrue(mcmc.log_likelihood_storage())
+        self.assertTrue(np.array_equal(mcmc.stored_log_likelihood(), []))
+        mcmc.set_initial_phase_iterations(10)
+        for sampler in mcmc._samplers:
+            self.assertTrue(sampler.in_initial_phase())
+        mcmc.set_max_iterations(11)
+        mcmc.set_log_to_screen(False)
+        mcmc.run()
+        self.assertTrue(not np.array_equal(mcmc.stored_log_likelihood(), []))
+
 
 if __name__ == '__main__':
     print('Add -v for more debug output')
